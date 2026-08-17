@@ -77,6 +77,37 @@
       margin-top: 6px
     }
 
+    /* Title photo of Mom & Dad: familiar faces for the child, and shows the finder who they're calling. */
+    .hero {
+      margin: 0 0 14px
+    }
+
+    /* The "Parents" heading is the key signpost for a finder — larger and higher-contrast than the small label h2s. */
+    h2.parents-h {
+      font-size: 26px;
+      letter-spacing: -.01em;
+      text-transform: none;
+      color: var(--ink);
+      font-weight: 800;
+      margin: 24px 4px 10px
+    }
+
+    .hero img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 3 / 2;
+      object-fit: cover;
+      border-radius: var(--r);
+      border: 1px solid var(--line);
+      background: var(--soft)
+    }
+
+    .hero figcaption {
+      font-size: 15px;
+      color: var(--muted);
+      margin: 6px 4px 0
+    }
+
     .card {
       background: #fff;
       border: 1px solid var(--line);
@@ -170,7 +201,7 @@
 
     .btn .en {
       color: rgba(255, 255, 255, .85);
-      font-size: 15px
+      font-size: 17px
     }
 
     .btn svg {
@@ -283,10 +314,10 @@
   <script>
     /* ============================ CONFIG — edit only this block ============================ */
     const CONFIG = {
-      // The key is what goes in the URL:  .../index.html?k=1  →  kids["1"]
-      // Keys can be anything short (numbers, initials, random tokens like "q7x").
+      // The key is what goes in the URL:  .../index.html?k=m3nph  →  kids["m3nph"]
+      // Random tokens (not 1/2/3) so finding one child's card doesn't reveal the others.
       kids: {
-        "1": {
+        "m3nph": {
           name: "BEN",                     // ← child's name
           age: 10,
           gender: "m",                          // "m" or "f" (affects Czech grammar)
@@ -294,7 +325,7 @@
           notes: { cs: "", en: "" },           // allergies / medical / anything important; empty = hidden
           photo: ""                            // e.g. "kid1.jpg" placed next to index.html; empty = hidden
         },
-        "2": {
+        "xbu7c": {
           name: "ARIELLE",
           age: 9,
           gender: "f",
@@ -302,7 +333,7 @@
           notes: { cs: "", en: "" },
           photo: ""
         },
-        "3": {
+        "afepv": {
           name: "DEAN",
           age: 5,
           gender: "m",
@@ -311,13 +342,19 @@
           photo: ""
         }
       },
-      fallback: "3",   // kid shown when the URL has no ?k= (set to null for a generic page)
+      fallback: null,   // no ?k= → generic "this child is lost" page, no name/number tied to a bare URL
 
       parents: [
         { call: { cs: "Zavolat mámě", en: "Call Mom" }, name: "Joanna", phone: "+972547276455", whatsapp: true },
         { call: { cs: "Zavolat tátovi", en: "Call Dad" }, name: "Yaron", phone: "+972546900444", whatsapp: true }
       ],
       locationTo: 0,   // index into parents[]: who receives the "send my location" message
+
+      // Photo of Mom & Dad shown right under the red banner. Put the file next to index.html
+      // (landscape, faces large, ~1200 px wide, keep it under ~300 KB). "" = hidden.
+      // Until the file exists, a neutral silhouette placeholder is shown instead.
+      parentsPhoto: "parents.jpg",
+      parentsCaption: { cs: "Máma a táta", en: "Mom and Dad" },
 
       hotel: { name: "Rezidence Kupec", phone: "+420777213013", address: "Frymburk 708, 382 79 Frymburk, Czechia" }, // null = hidden
       email: ""   // "" = hidden
@@ -352,6 +389,14 @@
       thanks: { cs: "Děkujeme!", en: "Thank you!" }
     };
     const PRON = { cs: { m: "s ním", f: "s ní", x: "s dítětem" }, en: { m: "him", f: "her", x: "the child" } };
+
+    /* Neutral two-person silhouette, shown until parents.jpg exists (inline SVG data URI, no network). */
+    const HERO_PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"><rect width="300" height="200" fill="#f0f0f0"/>' +
+      '<g fill="#c9c9c9"><circle cx="115" cy="78" r="30"/><path d="M70 165c0-30 20-50 45-50s45 20 45 50z"/>' +
+      '<circle cx="192" cy="86" r="26"/><path d="M154 168c0-26 17-44 38-44s38 18 38 44z"/></g>' +
+      '<text x="150" y="192" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#9a9a9a">parents.jpg</text></svg>'
+    );
 
     const I = {
       phone: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.8 2z"/></svg>',
@@ -391,22 +436,23 @@
           `</section>`;
       }
 
-      h += `<h2>${both(T.parents)}</h2>`;
+      h += `<h2 class="parents-h">${both(T.parents)}</h2>`;
+
+      // Parents' photo, under the "Parents" heading and above the call buttons.
+      {
+        const src = CONFIG.parentsPhoto ? esc(CONFIG.parentsPhoto) : HERO_PLACEHOLDER;
+        const cap = CONFIG.parentsCaption;
+        h += `<figure class="hero"><img src="${src}" alt="" onerror="this.src='${HERO_PLACEHOLDER}'">` +
+          (cap && (cap.cs || cap.en) ? `<figcaption>${both(cap)}</figcaption>` : "") +
+          `</figure>`;
+      }
+
       CONFIG.parents.forEach(p => {
         h += `<div class="parent"><div class="row">` +
           btn("", `tel:${esc(p.phone)}`, I.phone, p.call) +
           (p.whatsapp ? btn("chat", `https://wa.me/${digits(p.phone)}`, I.chat, T.chat) : "") +
           `</div><div class="num">${esc(p.name)} · ${esc(p.phone)}</div></div>`;
       });
-
-      h += `<h2>${both(T.locT)}</h2><p class="hint">${both(T.locH)}</p>` +
-        `<button class="btn loc" id="loc-btn" type="button">${I.aim}<span>${bi(T.locB)}</span></button>` +
-        `<div id="loc-status"></div>` +
-        `<div id="loc-panel"><div class="link" id="loc-link"></div>` +
-        btn("chat", "#", I.chat, T.locWA, "loc-wa") +
-        btn("soft", "#", I.chat, T.locSMS, "loc-sms") +
-        `<button class="btn soft" id="loc-copy" type="button">${I.copy}<span>${bi(T.locCp)}</span></button>` +
-        `</div>`;
 
       if (CONFIG.hotel) {
         const H = CONFIG.hotel;
@@ -416,6 +462,15 @@
           (H.address ? btn("soft", `https://maps.google.com/?q=${encodeURIComponent(H.name + ", " + H.address)}`, I.pin, T.mapsB) : "");
       }
       if (CONFIG.email) h += btn("soft", `mailto:${esc(CONFIG.email)}`, I.mail, T.mailB);
+
+      h += `<h2>${both(T.locT)}</h2><p class="hint">${both(T.locH)}</p>` +
+        `<button class="btn loc" id="loc-btn" type="button">${I.aim}<span>${bi(T.locB)}</span></button>` +
+        `<div id="loc-status"></div>` +
+        `<div id="loc-panel"><div class="link" id="loc-link"></div>` +
+        btn("chat", "#", I.chat, T.locWA, "loc-wa") +
+        btn("soft", "#", I.chat, T.locSMS, "loc-sms") +
+        `<button class="btn soft" id="loc-copy" type="button">${I.copy}<span>${bi(T.locCp)}</span></button>` +
+        `</div>`;
 
       h += `<footer class="foot"><p>${bi(T.emerg)}</p><p>${bi(fill(T.stayW, pron))}</p><p class="thanks">${bi(T.thanks)}</p></footer>`;
 
